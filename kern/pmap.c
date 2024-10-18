@@ -463,6 +463,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 		return -E_NO_MEM;
 	
 	pp->pp_ref += 1;
+	
 	if(*pte & PTE_P)
 		page_remove(pgdir, va);
 	
