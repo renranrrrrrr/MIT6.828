@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,6 +26,7 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display backtrace information", mon_backtrace },
+	{ "showmapping", "Display the physical page mappings and corresponding permission bits that apply to the pages at virtual addresses", mon_showmappings}, 
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -82,6 +84,83 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		ebp = (uint32_t *)*ebp;
 	}
 	return 0;
+}
+
+bool check(const char* buf){
+	buf += 2;
+
+	while(*buf){
+        if(*buf < '0' || (*buf >'9' && *buf <'A') ||
+		   (*buf > 'F' && *buf <'a') || *buf >'f' ){
+            return false;
+        }
+		++buf;
+    }
+
+	return true; 
+}
+
+uint32_t trans(const char* buf){
+    uint32_t result = 0;
+    buf += 2;
+
+    while(*buf){
+        uint32_t val = 0;
+        
+        if(*buf >= '0' && *buf <='9'){
+            val = *buf - '0';
+        }
+		else if(*buf >= 'a' && *buf <= 'f'){
+            val = *buf - 'a' + 10;
+        }
+		else if(*buf >= 'A' && *buf <= 'F'){
+            val = *buf - 'A' + 10;
+        }
+        result = result * 16 + val;
+        ++buf;
+    }
+
+    return result;
+}
+
+int 
+mon_showmappings(int argc,char** argv,struct Trapframe* tf){
+	
+	if(argc == 1){
+		cprintf("\nPlease pass arguments in correct formats, for example: 'showmappings begin_addr end_addr'\n");
+		return 0;
+	}
+
+	if(argv[1] > argv[2]){
+		cprintf("\nPlease make sure that begin_addr is no greater than end_addr.\n");
+		return 0;
+	}
+
+	if(!check(argv[1]) || !check(argv[2])){
+		cprintf("\nInvalid address, please check your input.\n");
+		return 0;
+	}
+
+	uint32_t vstart, vend;
+    pte_t *pte;
+
+    vstart = trans(argv[1]);
+	vend = trans(argv[2]);
+	
+    vstart = ROUNDDOWN(vstart, PGSIZE);
+    vend = ROUNDDOWN(vend, PGSIZE);
+
+    for(; vstart <= vend; vstart += PGSIZE){
+        pte = pgdir_walk(kern_pgdir, (void *)vstart, 0);
+        
+		if(pte && (*pte & PTE_P)){
+            cprintf("VA: 0x%08x, PA: 0x%08x, PTE_P: %x, PTE_W: %x, PTE_U: %x\n",
+                vstart, PTE_ADDR(*pte), *pte&PTE_P, *pte & PTE_W, *pte & PTE_U);
+        }
+		else cprintf("Page 0x%08x not exist.\n", vstart);
+    }
+
+    return 0;
 }
 
 
