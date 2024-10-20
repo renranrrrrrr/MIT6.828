@@ -120,3 +120,7 @@ I used `kern/monitor.c/check` to verify if the input addresses are valid; `kern/
 #### Explicitly set, clear, or change the permissions of any mapping in the current address space.
 
 Just check if the input is valid and modify the permissions as needed. See `kern/monitor.c/mon_showmappings` for details.
+
+#### Dump the contents of a range of memory given either a virtual or physical address range. Be sure the dump code behaves correctly when the range extends across page boundaries!
+
+Notice that we can directly access the corresponding physical address by accessing the virtual address above KERNBASE. Pay attention to the differences in pa and va.See `kern/monitor.c/mon_dumpmem` for details.

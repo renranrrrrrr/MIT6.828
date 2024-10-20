@@ -28,6 +28,7 @@ static struct Command commands[] = {
 	{ "backtrace", "Display backtrace information", mon_backtrace },
 	{ "showmapping", "Display the physical page mappings and corresponding permission bits that apply to the pages at virtual addresses", mon_showmappings},
 	{ "setpermission", "Set the permission bits of a given mapping", mon_setpermissions },
+	{ "dumpmem", "Dump the contents of a range of memory", mon_dumpmem},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -205,6 +206,93 @@ mon_setpermissions(int argc, char **argv, struct Trapframe *tf){
 	return 0;    
 }
 
+int 
+mon_dumpmem(int argc, char **argv, struct Trapframe *tf){
+
+	if (argc != 4) {
+		cprintf("\nPlease pass arguments in correct formats, for example:\n");
+		cprintf("	dumpmem addr_type begin_addr DWORD\n");
+		cprintf("	addr_type should be 'v' or 'p'\n");
+    	return 0;
+    }
+
+	if(!check(argv[2])){
+		cprintf("\nInvalid address, please check your input.\n");
+		return 0;
+	}
+
+    uint32_t astart, aend;
+	bool p = false;
+
+    if(strcmp(argv[1], "p") == 0){
+        astart = trans(argv[2]) + KERNBASE;
+        aend = astart + trans(argv[3]);
+		p =true;
+    }
+	else if(strcmp(argv[1], "v") == 0){
+        astart = trans(argv[2]);
+        aend = astart + trans(argv[3]);
+    }
+	else{
+        cprintf("Invalid addr_type. Please enter 'v' for virtual address, 'p' for physics address.\n");
+        return 0;
+    }
+
+	if(p && aend > npages * PGSIZE){
+        cprintf("Out of memory.\n");
+        return 0;
+    }
+
+    if(astart >= aend){
+        cprintf("Invalid ADDR (0x%x, 0x%x)!\n", astart, aend);
+		cprintf("Please make sure that begin_addr is no greater than end_addr.\n");
+        return 0;
+    }
+
+	if(p){
+		uint32_t next, base;
+
+		while (astart < aend) {
+			next = MIN(ROUNDUP(astart + 1, PGSIZE), aend);
+			base = ROUNDDOWN(astart, PGSIZE);
+
+			page_insert(kern_pgdir, &pages[base / PGSIZE], (void*)KERNBASE, PTE_P);
+
+			for (; astart < next; ++astart) {
+				uint32_t offset = astart - base + KERNBASE;
+				cprintf("VA: /, PA: 0x%08x, Value: %02x\n", astart, *((uint8_t*)offset));
+			}
+
+			page_remove(kern_pgdir, (void*)KERNBASE);
+		}
+	}
+	else {
+		uint32_t next;
+		pte_t *pte;
+
+		while (astart < aend) {
+			next = MIN((astart + PGSIZE - (astart % PGSIZE)), aend);
+
+			pte = pgdir_walk(kern_pgdir, (void *)astart, 0);
+
+			if(!pte || !(*pte & PTE_P)){
+				for(; astart < next; ++astart){
+					cprintf("VA: 0x%08x, PA: No mapping, Value: None\n", astart);
+				}
+			}
+			else{
+				for(; astart < next; ++astart){
+					uint32_t pa = PTE_ADDR(*pte) | PGOFF(astart);
+    				uint8_t value = *(uint8_t *)astart; 
+
+					cprintf("VA: 0x%08x, PA: 0x%08x, Value: %02x\n", astart, pa, value);
+				}
+			}
+		}
+	}
+
+	return 0;
+}
 /***** Kernel monitor command interpreter *****/
 
 #define WHITESPACE "\t\r\n "
