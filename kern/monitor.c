@@ -26,7 +26,8 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display backtrace information", mon_backtrace },
-	{ "showmapping", "Display the physical page mappings and corresponding permission bits that apply to the pages at virtual addresses", mon_showmappings}, 
+	{ "showmapping", "Display the physical page mappings and corresponding permission bits that apply to the pages at virtual addresses", mon_showmappings},
+	{ "setpermission", "Set the permission bits of a given mapping", mon_setpermissions },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -102,7 +103,9 @@ bool check(const char* buf){
 
 uint32_t trans(const char* buf){
     uint32_t result = 0;
-    buf += 2;
+    
+	if(*buf == '0' && (*(buf+1)) == 'x')
+		buf += 2;
 
     while(*buf){
         uint32_t val = 0;
@@ -126,8 +129,9 @@ uint32_t trans(const char* buf){
 int 
 mon_showmappings(int argc,char** argv,struct Trapframe* tf){
 	
-	if(argc == 1){
-		cprintf("\nPlease pass arguments in correct formats, for example: 'showmappings begin_addr end_addr'\n");
+	if(argc !=3){
+		cprintf("\nPlease pass arguments in correct formats, for example:\n");
+		cprintf("	showmappings begin_addr end_addr\n");
 		return 0;
 	}
 
@@ -157,13 +161,49 @@ mon_showmappings(int argc,char** argv,struct Trapframe* tf){
             cprintf("VA: 0x%08x, PA: 0x%08x, PTE_P: %x, PTE_W: %x, PTE_U: %x\n",
                 vstart, PTE_ADDR(*pte), *pte&PTE_P, *pte & PTE_W, *pte & PTE_U);
         }
-		else cprintf("Page 0x%08x not exist.\n", vstart);
+		else cprintf("Page 0x%08x, there's no such mapping\n", vstart);
     }
 
     return 0;
 }
 
+int 
+mon_setpermissions(int argc, char **argv, struct Trapframe *tf){
 
+    if(argc != 3){
+        cprintf("\nPlease pass arguments in correct formats, for example:\n");
+		cprintf("	setperm virtual_address permission\n");
+    	return 0;
+	}
+
+	if(!check(argv[1])){
+		cprintf("\nInvalid address, please check your input.\n");
+		return 0;
+	}
+
+    uint16_t perm = (uint16_t)trans(argv[2]);
+	if(perm > 0xFFF){
+		cprintf("\nInvalid permission, please check your input.\n");
+		return 0;
+	}
+
+    uint32_t va = trans(argv[1]);
+	pte_t *pte = pgdir_walk(kern_pgdir, (void*)va, 0);
+    
+	if(pte && (*pte & PTE_P)){
+		cprintf("You're going to set permission at:\n");
+		cprintf("VA: 0x%08x, PA: 0x%08x, PTE_P: %x, PTE_W: %x, PTE_U: %x\n",
+                va, PTE_ADDR(*pte), *pte&PTE_P, *pte & PTE_W, *pte & PTE_U);
+        *pte = (*pte & 0xFFFFF000) | perm | PTE_P;
+		cprintf("You've successfully set permission.\n");
+		cprintf("VA: 0x%08x, PA: 0x%08x, PTE_P: %x, PTE_W: %x, PTE_U: %x\n",
+                va, PTE_ADDR(*pte), *pte&PTE_P, *pte & PTE_W, *pte & PTE_U);
+
+    }
+	else cprintf("Page 0x%08x, there's no such mapping\n", va);
+    
+	return 0;    
+}
 
 /***** Kernel monitor command interpreter *****/
 
