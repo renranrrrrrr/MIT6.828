@@ -1,0 +1,17 @@
+check_page_free_list() succeeded!
+check_page_alloc() succeeded!
+check_page() succeeded!
+check_kern_pgdir() succeeded!
+check_page_free_list() succeeded!
+check_page_installed_pgdir() succeeded!
+SMP: CPU 0 found 2 CPU(s)
+enabled interrupts: 1 2
+SMP: CPU 1 starting
+[00000000] new env 00001000
+[00000000] new env 00001001
+[00000000] new env 00001002
+CPU 0 cannot release kernel_lock: held by CPU 1
+Acquired at:  f010022f kern/init.c:115: mp_main+71
+  00007057
+kernel panic on CPU 0 at kern/spinlock.c:103: spin_unlock
+
