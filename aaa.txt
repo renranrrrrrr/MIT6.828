@@ -1,17 +1,32 @@
-check_page_free_list() succeeded!
-check_page_alloc() succeeded!
-check_page() succeeded!
-check_kern_pgdir() succeeded!
-check_page_free_list() succeeded!
-check_page_installed_pgdir() succeeded!
-SMP: CPU 0 found 2 CPU(s)
-enabled interrupts: 1 2
-SMP: CPU 1 starting
-[00000000] new env 00001000
-[00000000] new env 00001001
-[00000000] new env 00001002
-CPU 0 cannot release kernel_lock: held by CPU 1
-Acquired at:  f010022f kern/init.c:115: mp_main+71
-  00007057
-kernel panic on CPU 0 at kern/spinlock.c:103: spin_unlock
+piao@piao-virtual-machine:~/6.828/lab$ make grade
+make clean
+make[1]: 进入目录“/home/piao/6.828/lab”
+rm -rf obj .gdbinit jos.in qemu.log
+make[1]: 离开目录“/home/piao/6.828/lab”
+./grade-lab4 
+make[1]: 进入目录“/home/piao/6.828/lab”
++ as kern/entry.S
++ cc kern/entrypgdir.c
++ cc kern/init.c
++ cc kern/console.c
++ cc kern/monitor.c
++ cc kern/pmap.c
++ cc kern/env.c
++ cc kern/kclock.c
++ cc kern/picirq.c
++ cc kern/printf.c
++ cc kern/trap.c
++ as kern/trapentry.S
++ cc kern/sched.c
++ cc kern/syscall.c
+kern/syscall.c: In function ‘sys_env_set_pgfault_upcall’:
+kern/syscall.c:152:1: error: control reaches end of non-void function [-Werror=return-type]
+ }
+ ^
+cc1: all warnings being treated as errors
+kern/Makefrag:87: recipe for target 'obj/kern/syscall.o' failed
+make[1]: *** [obj/kern/syscall.o] Error 1
+make[1]: 离开目录“/home/piao/6.828/lab”
+GNUmakefile:207: recipe for target 'grade' failed
+make: *** [grade] Error 1
 
