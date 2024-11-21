@@ -30,7 +30,7 @@ pgfault(struct UTrapframe *utf)
 	if(!(err & FEC_WR) || !(pte & PTE_COW))
 	{
 		cprintf("[%08x] user fault va %08x ip %08x\n", sys_getenvid(), addr, utf->utf_eip);
-		panic("pgfault!");
+		panic("Page Fault!");
 	}
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -41,15 +41,11 @@ pgfault(struct UTrapframe *utf)
 	// LAB 4: Your code here.
 	uintptr_t start_addr = ROUNDDOWN((uintptr_t)addr, PGSIZE);
 	int ret;
-	ret = sys_page_alloc(0, PFTEMP, PTE_W | PTE_U | PTE_P);
-	if(ret <  0){
-		panic("pgfault: page alloc failed: %e", ret);
-	}
+	if((ret = sys_page_alloc(0, PFTEMP, PTE_W | PTE_U | PTE_P)) < 0)
+		panic("Page Alloc Failed: %e", ret);
 	memmove((void*)PFTEMP, (void*)start_addr, PGSIZE);
-	ret = sys_page_map(0, (void*)PFTEMP, 0, (void*)start_addr, PTE_W | PTE_U | PTE_P);
-	if(ret  <  0){
-		panic("pgfault!: page map failed: %e", ret);
-	}
+	if((ret = sys_page_map(0, (void*)PFTEMP, 0, (void*)start_addr, PTE_W | PTE_U | PTE_P)) < 0)
+		panic("Page Map Failed: %e", ret);
 	//panic("pgfault not implemented");
 }
 
@@ -73,6 +69,7 @@ duppage(envid_t envid, unsigned pn)
 	void *va = (void *)(pn * PGSIZE);
     pte_t pte = uvpt[pn];
 
+    assert(pte & PTE_P && pte & PTE_U);
     if (pte & PTE_W || pte & PTE_COW) {
 		r = sys_page_map(0, va, envid, va, PTE_P | PTE_U | PTE_COW);
         if (r < 0){
@@ -83,8 +80,7 @@ duppage(envid_t envid, unsigned pn)
         if (r < 0){
             panic("duppage: %e", r);
 		}
-    }
-	else {
+    } else {
 		r = sys_page_map(0, va, envid, va, PTE_P | PTE_U);
         if (r < 0){
             panic("duppage: %e", r);
