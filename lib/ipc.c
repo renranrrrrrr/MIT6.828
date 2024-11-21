@@ -26,8 +26,12 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 	if(pg==NULL){
 		pg = (void *) UTOP;
 	}
+	else{
+		pg = ROUNDDOWN(pg, PGSIZE);
+	}
+
 	int ret = sys_ipc_recv(pg);
-	if(pg < 0){
+	if(ret < 0){
 		if(from_env_store != NULL){
 			*from_env_store = 0;
 		}
@@ -45,7 +49,7 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 	}
 	return thisenv->env_ipc_value;
 	//panic("ipc_recv not implemented");
-	//return 0;
+	return 0;
 }
 
 // Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.
@@ -63,15 +67,19 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 	if(pg==NULL){
 		pg = (void *) UTOP;
 	}
+	else{
+		pg = ROUNDDOWN(pg, PGSIZE);
+	}
 	
 	int ret;
 	do{
 		ret = sys_ipc_try_send(to_env, val, pg, perm);
-		if(ret != -E_IPC_NOT_RECV){
-			panic("ipc_send: %e", ret);
-		}
 		sys_yield();
-	}while(ret < 0);
+	}while(ret == -E_IPC_NOT_RECV);
+
+	if(ret < 0 && ret != -E_IPC_NOT_RECV){
+		panic("ipc_send: %e", ret);
+	}
 	//panic("ipc_send not implemented");
 }
 

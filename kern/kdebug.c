@@ -118,9 +118,9 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	int lfile, rfile, lfun, rfun, lline, rline;
 
 	// Initialize *info
-	info->eip_file = "<unknown>";
+	info->eip_file = "";
 	info->eip_line = 0;
-	info->eip_fn_name = "<unknown>";
+	info->eip_fn_name = "";
 	info->eip_fn_namelen = 9;
 	info->eip_fn_addr = addr;
 	info->eip_fn_narg = 0;

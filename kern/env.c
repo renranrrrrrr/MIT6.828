@@ -383,8 +383,6 @@ load_icode(struct Env *e, uint8_t *binary)
 		}
     }
 
-	//e->env_status = ENV_RUNNABLE;
-    //e->env_tf.tf_esp = USTACKTOP;
     e->env_tf.tf_eip = ELF_Header->e_entry;
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
