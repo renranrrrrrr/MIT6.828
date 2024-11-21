@@ -40,12 +40,23 @@ pgfault(struct UTrapframe *utf)
 
 	// LAB 4: Your code here.
 	uintptr_t start_addr = ROUNDDOWN((uintptr_t)addr, PGSIZE);
-	int ret;
-	if((ret = sys_page_alloc(0, PFTEMP, PTE_W | PTE_U | PTE_P)) < 0)
-		panic("Page Alloc Failed: %e", ret);
+	
+	int ret = sys_page_alloc(0, (void*)PFTEMP, PTE_W | PTE_U | PTE_P);
+	if(ret < 0){
+		panic("pgfault: page alloc failed: %e", ret);
+	}
+	
 	memmove((void*)PFTEMP, (void*)start_addr, PGSIZE);
-	if((ret = sys_page_map(0, (void*)PFTEMP, 0, (void*)start_addr, PTE_W | PTE_U | PTE_P)) < 0)
-		panic("Page Map Failed: %e", ret);
+	
+	ret = sys_page_map(0, (void*)PFTEMP, 0, (void*)start_addr, PTE_W | PTE_U | PTE_P);
+	if(ret < 0){
+		panic("pgfault: page map failed: %e", ret);
+	}
+
+	ret = sys_page_unmap(0, (void *)PFTEMP);
+	if (ret < 0){
+        panic("sys_page_unmap: %e\n", ret);
+	}
 	//panic("pgfault not implemented");
 }
 
