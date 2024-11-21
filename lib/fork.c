@@ -124,7 +124,10 @@ fork(void)
 	envid_t envid;
 	int r;
 
+	// Set up our page fault handler appropriately.
 	set_pgfault_handler(pgfault);
+
+	// Create a child.
 	envid = sys_exofork();
 	if (envid < 0) {
 		panic("sys_exofork: %e", envid);
@@ -134,6 +137,8 @@ fork(void)
 		return 0;
 	}
 
+
+	// Copy our address space and page fault handler setup to the child.
 	for (uint32_t addr = 0; addr < USTACKTOP; addr += PGSIZE) {
 		uint32_t pde = uvpd[PDX(addr)];
 		if ((pde & PTE_P) == PTE_P){
@@ -146,6 +151,7 @@ fork(void)
 
 	void _pgfault_upcall();
 
+	//allocate a new page for the child's user exception stack.
 	r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_W | PTE_U | PTE_P);
 	if (r < 0) {
 		panic("fork: %e", r);
@@ -156,6 +162,7 @@ fork(void)
 		panic("fork: %e", r);
 	}
 
+	// Then mark the child as runnable and return.
 	r = sys_env_set_status(envid, ENV_RUNNABLE);
 	if (r < 0)
 		panic("fork: %e", r);
