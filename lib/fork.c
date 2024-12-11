@@ -25,7 +25,13 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
-
+	pte_t pte = uvpt[PGNUM(addr)];
+	
+	if(!(err & FEC_WR) || !(pte & PTE_COW))
+	{
+		cprintf("[%08x] user fault va %08x ip %08x\n", sys_getenvid(), addr, utf->utf_eip);
+		panic("Page Fault!");
+	}
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
 	// page to the old page's address.
@@ -33,8 +39,25 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
+	uintptr_t start_addr = ROUNDDOWN((uintptr_t)addr, PGSIZE);
+	
+	int ret = sys_page_alloc(0, (void*)PFTEMP, PTE_W | PTE_U | PTE_P);
+	if(ret < 0){
+		panic("pgfault: page alloc failed: %e", ret);
+	}
+	
+	memmove((void*)PFTEMP, (void*)start_addr, PGSIZE);
+	
+	ret = sys_page_map(0, (void*)PFTEMP, 0, (void*)start_addr, PTE_W | PTE_U | PTE_P);
+	if(ret < 0){
+		panic("pgfault: page map failed: %e", ret);
+	}
 
-	panic("pgfault not implemented");
+	ret = sys_page_unmap(0, (void *)PFTEMP);
+	if (ret < 0){
+        panic("sys_page_unmap: %e\n", ret);
+	}
+	//panic("pgfault not implemented");
 }
 
 //
@@ -54,7 +77,27 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
-	panic("duppage not implemented");
+	void *va = (void *)(pn * PGSIZE);
+    pte_t pte = uvpt[pn];
+
+    if (pte & PTE_W || pte & PTE_COW) {
+		r = sys_page_map(0, va, envid, va, PTE_P | PTE_U | PTE_COW);
+        if (r < 0){
+            panic("duppage: %e", r);
+		}
+
+        r = sys_page_map(0, va, 0, va, PTE_P | PTE_U | PTE_COW);
+        if (r < 0){
+            panic("duppage: %e", r);
+		}
+    }
+	else {
+		r = sys_page_map(0, va, envid, va, PTE_P | PTE_U);
+        if (r < 0){
+            panic("duppage: %e", r);
+		}
+    }
+	//panic("duppage not implemented");
 	return 0;
 }
 
@@ -78,7 +121,54 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	panic("fork not implemented");
+	envid_t envid;
+	int r;
+
+	// Set up our page fault handler appropriately.
+	set_pgfault_handler(pgfault);
+
+	// Create a child.
+	envid = sys_exofork();
+	if (envid < 0) {
+		panic("sys_exofork: %e", envid);
+	}
+	if (envid == 0) {
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+
+
+	// Copy our address space and page fault handler setup to the child.
+	for (uint32_t addr = 0; addr < USTACKTOP; addr += PGSIZE) {
+		uint32_t pde = uvpd[PDX(addr)];
+		if ((pde & PTE_P) == PTE_P){
+			uint32_t pte = uvpt[PGNUM(addr)];
+			if(pte & PTE_P && pte & PTE_U){
+				duppage(envid, PGNUM(addr));
+			}
+		}
+	}
+
+	void _pgfault_upcall();
+
+	//allocate a new page for the child's user exception stack.
+	r = sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_W | PTE_U | PTE_P);
+	if (r < 0) {
+		panic("fork: %e", r);
+	}
+
+	r = sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
+	if (r < 0) {
+		panic("fork: %e", r);
+	}
+
+	// Then mark the child as runnable and return.
+	r = sys_env_set_status(envid, ENV_RUNNABLE);
+	if (r < 0)
+		panic("fork: %e", r);
+
+	return envid;
+	//panic("fork not implemented");
 }
 
 // Challenge!

@@ -1,0 +1,3 @@
+piao@piao-virtual-machine:~/ans/init$ git clone https://pdoc.csail.mit.edu/6.828/2018/jos.git lab
+正克隆到 'lab'...
+fatal: unable to access 'https://pdoc.csail.mit.edu/6.828/2018/jos.git/': gnutls_handshake() failed: The TLS connection was non-properly terminated.
