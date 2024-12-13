@@ -81,7 +81,10 @@ duppage(envid_t envid, unsigned pn)
     pte_t pte = uvpt[pn];
 
 	if (pte & PTE_SHARE) {
-		sys_page_map(0, va, envid, va, PTE_SYSCALL);
+		r = sys_page_map(0, va, envid, va, PTE_SYSCALL);
+		if (r < 0){
+            panic("duppage: %e", r);
+		}
 	}
     else if (pte & PTE_W || pte & PTE_COW) {
 		r = sys_page_map(0, va, envid, va, PTE_P | PTE_U | PTE_COW);
