@@ -256,6 +256,13 @@ trap_dispatch(struct Trapframe *tf)
 			lapic_eoi();
 			sched_yield();
 			return;
+		//LAB 5:
+		case IRQ_OFFSET + IRQ_KBD:
+			kbd_intr();
+			return;
+		case IRQ_OFFSET + IRQ_SERIAL:
+			serial_intr();
+			return;
 		default:
 			// Handle spurious interrupts
 			// The hardware sometimes raises these because of noise on the

@@ -80,7 +80,10 @@ duppage(envid_t envid, unsigned pn)
 	void *va = (void *)(pn * PGSIZE);
     pte_t pte = uvpt[pn];
 
-    if (pte & PTE_W || pte & PTE_COW) {
+	if (pte & PTE_SHARE) {
+		sys_page_map(0, va, envid, va, PTE_SYSCALL);
+	}
+    else if (pte & PTE_W || pte & PTE_COW) {
 		r = sys_page_map(0, va, envid, va, PTE_P | PTE_U | PTE_COW);
         if (r < 0){
             panic("duppage: %e", r);
